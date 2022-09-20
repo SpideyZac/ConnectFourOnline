@@ -4,8 +4,10 @@ import _thread
 import json
 
 # Constants
-HOST = "0.0.0.0"
+HOST = socket.gethostname()
 PORT = 8080
+
+print(HOST, PORT)
 
 # API Functions
 def CreateNewGame(parameters: list) -> str:
@@ -31,10 +33,10 @@ def start_server():
         _thread.start_new_thread(socket_thread, (conn, addr))
 
 # Socket User Handler
-def socket_thread(conn: socket.socket, addr: socket._RetAddress):
+def socket_thread(conn: socket.socket, addr):
     while True:
         try:
-            data = conn.recv(1024)
+            data = conn.recv(1024).decode()
             # Data should be in structure:
             # {
             #    api: str with the name of the api to call
@@ -42,16 +44,21 @@ def socket_thread(conn: socket.socket, addr: socket._RetAddress):
             # }
             try:
                 json_data = json.loads(data)
+
                 if 'api' not in json_data:
                     conn.send('Request missing api str'.encode())
                 elif 'params' not in json_data:
                     conn.send('Request missing params list'.encode())
                 else:
                     if json_data['api'] in apis:
-                        conn.send(apis[json_data['api']](json_data['params']).encode())
+                        conn.send(json.dumps(apis[json_data['api']](json_data['params'])).encode())
                     else:
                         conn.send('API requested is not valid'.encode())
             except:
                 conn.send('Data must be of type: JSON'.encode())
         except:
+            print(f"Disconnect by {addr}")
             break
+
+if __name__ == "__main__":
+    start_server()
