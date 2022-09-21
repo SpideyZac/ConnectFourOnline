@@ -6,8 +6,8 @@ PORT = 8080
 
 tests = [
     {
-        'api': "Login",
-        'params': ["e"],
+        'api': "Signup",
+        'params': ["asidfjsaoifjslakfjasoifjpasodfasjfdpiosajfiasjfaisfjasi0fjhasiopfhjsafhsfghnsudvhbdijhngdikufhsoaduhfsaduhf"],
     }
 ]
 

@@ -48,6 +48,9 @@ def Signup(parameters: list) -> dict:
     if not isinstance(parameters[0], str):
         return {"success": False}
 
+    if len(parameters[0]) > 50:
+        return {"success": False}
+
     cursor = db.cursor()
 
     # Check if user already exists
