@@ -2,6 +2,19 @@
 import socket
 import _thread
 import json
+import mysql.connector
+import dotenv
+import os
+
+dotenv.load_dotenv()
+
+# MySQL
+db = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    passwd=os.getenv("PASSWORD"),
+    database="connectfouronline"
+)
 
 # Constants
 HOST = socket.gethostname()
@@ -10,15 +23,72 @@ PORT = 8080
 print(HOST, PORT)
 
 # API Functions
-def CreateNewGame(parameters: list) -> str:
-    if len(parameters) != 2:
+def CreateNewGame(parameters: list) -> dict:
+    if len(parameters) < 2:
         return {"success": False}
 
     return {"success": True, "data": "Hi"}
 
+def ViewGame(parameters: list) -> dict:
+    if len(parameters) < 1:
+        return {"success": False}
+
+    return {"success": True, "data": "Hi"}
+
+def MakeMove(parameters: list) -> dict:
+    if len(parameters) < 3:
+        return {"success": False}
+
+    return {"success": True, "data": "Hi"}
+
+def Signup(parameters: list) -> dict:
+    if len(parameters) < 1:
+        return {"success": False}
+
+    if not isinstance(parameters[0], str):
+        return {"success": False}
+
+    cursor = db.cursor()
+
+    # Check if user already exists
+    cursor.execute("SELECT * FROM users WHERE username=%s", (parameters[0],))
+
+    if cursor.fetchone() is None:
+        # Create account
+        cursor.execute("INSERT INTO users (username) VALUES (%s)", (parameters[0],))
+        db.commit()
+
+        return {"success": True, "username": parameters[0]}
+    else:
+        # Account already exists
+        return {"success": False}
+
+def Login(parameters: list) -> dict:
+    if len(parameters) < 1:
+        return {"success": False}
+
+    if not isinstance(parameters[0], str):
+        return {"success": False}
+
+    cursor = db.cursor()
+
+    # Check if username is valid
+    cursor.execute("SELECT * FROM users WHERE username=%s", (parameters[0],))
+
+    if cursor.fetchone() is not None:
+        # If the user exists
+        return {"success": True, "username": parameters[0]}
+    else:
+        # User does not exist
+        return {"success": False}
+
 # API Handles
 apis = {
-    "CreateNewGame": CreateNewGame
+    "CreateNewGame": CreateNewGame,
+    "ViewGame": ViewGame,
+    "MakeMove": MakeMove,
+    "Signup": Signup,
+    "Login": Login,
 }
 
 # Socket Server
@@ -51,7 +121,10 @@ def socket_thread(conn: socket.socket, addr):
                     conn.send('Request missing params list'.encode())
                 else:
                     if json_data['api'] in apis:
-                        conn.send(json.dumps(apis[json_data['api']](json_data['params'])).encode())
+                        if isinstance(json_data['params'], list):
+                            conn.send(json.dumps(apis[json_data['api']](json_data['params'])).encode())
+                        else:
+                            conn.send('Params must be of type list'.encode())
                     else:
                         conn.send('API requested is not valid'.encode())
             except:

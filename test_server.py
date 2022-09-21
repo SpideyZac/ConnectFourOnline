@@ -6,8 +6,8 @@ PORT = 8080
 
 tests = [
     {
-        'api': "CreateNewGame",
-        'params': [1, 2],
+        'api': "Login",
+        'params': ["e"],
     }
 ]
 
