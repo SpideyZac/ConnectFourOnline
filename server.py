@@ -41,57 +41,11 @@ def MakeMove(parameters: list) -> dict:
 
     return {"success": True, "data": "Hi"}
 
-def Signup(parameters: list) -> dict:
-    if len(parameters) < 1:
-        return {"success": False}
-
-    if not isinstance(parameters[0], str):
-        return {"success": False}
-
-    if len(parameters[0]) > 50:
-        return {"success": False}
-
-    cursor = db.cursor()
-
-    # Check if user already exists
-    cursor.execute("SELECT * FROM users WHERE username=%s", (parameters[0],))
-
-    if cursor.fetchone() is None:
-        # Create account
-        cursor.execute("INSERT INTO users (username) VALUES (%s)", (parameters[0],))
-        db.commit()
-
-        return {"success": True, "username": parameters[0]}
-    else:
-        # Account already exists
-        return {"success": False}
-
-def Login(parameters: list) -> dict:
-    if len(parameters) < 1:
-        return {"success": False}
-
-    if not isinstance(parameters[0], str):
-        return {"success": False}
-
-    cursor = db.cursor()
-
-    # Check if username is valid
-    cursor.execute("SELECT * FROM users WHERE username=%s", (parameters[0],))
-
-    if cursor.fetchone() is not None:
-        # If the user exists
-        return {"success": True, "username": parameters[0]}
-    else:
-        # User does not exist
-        return {"success": False}
-
 # API Handles
 apis = {
     "CreateNewGame": CreateNewGame,
     "ViewGame": ViewGame,
     "MakeMove": MakeMove,
-    "Signup": Signup,
-    "Login": Login,
 }
 
 # Socket Server
