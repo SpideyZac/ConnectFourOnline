@@ -1,5 +1,6 @@
 # My Scripts
-mysqltest.py
+connectfour.db
+sqlitetest.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

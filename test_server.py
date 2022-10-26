@@ -6,8 +6,28 @@ PORT = 8080
 
 tests = [
     {
-        'api': "Signup",
-        'params': ["asidfjsaoifjslakfjasoifjpasodfasjfdpiosajfiasjfaisfjasi0fjhasiopfhjsafhsfghnsudvhbdijhngdikufhsoaduhfsaduhf"],
+        'api': "MakeMove",
+        'params': [0, "Steve", 2],
+    },
+    {
+        'api': "MakeMove",
+        'params': [0, "SpideyZac", 1],
+    },
+    {
+        'api': "MakeMove",
+        'params': [0, "Steve", 2],
+    },
+    {
+        'api': "MakeMove",
+        'params': [0, "SpideyZac", 1],
+    },
+    {
+        'api': "MakeMove",
+        'params': [0, "Steve", 2],
+    },
+    {
+        'api': "MakeMove",
+        'params': [0, "SpideyZac", 1],
     }
 ]
 
