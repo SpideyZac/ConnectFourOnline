@@ -1,30 +1,107 @@
 # Imports
-import socket
-import _thread
+import asyncio
+from websockets import serve
 import json
 import sqlite3
+import random
+import string
 
 # Database
 database_connection = sqlite3.connect("connectfour.db", check_same_thread=False)
 
-database_connection.execute("CREATE TABLE IF NOT EXISTS players (id INT UNSIGNED NOT NULL, username TEXT NOT NULL, firstname TEXT NOT NULL, lastname TEXT NOT NULL)")
+database_connection.execute("CREATE TABLE IF NOT EXISTS players (id INT UNSIGNED NOT NULL, username TEXT NOT NULL, firstname TEXT NOT NULL, lastname TEXT NOT NULL, password TEXT NOT NULL)")
 database_connection.execute("CREATE TABLE IF NOT EXISTS games (id INT UNSIGNED NOT NULL, whiteplayerid INT UNSIGNED NOT NULL, redplayerid INT UNSIGNED NOT NULL, state TEXT NOT NULL)")
 
-# Constants
-HOST = socket.gethostname()
-PORT = 8080
-
-print(HOST, PORT)
+# Player verification keys
+pvk = {}
+verification_keys_in_use = []
+conn_to_key = {}
 
 # API Functions
-def CreateNewGame(parameters: list) -> dict:
-    if len(parameters) < 2:
+def signup(parameters: list, conn) -> dict:
+    if len(parameters) < 4:
         return {"success": False, "error": "Not enough parameters"}
+
+    username = parameters[0]
+    firstname = parameters[1]
+    lastname = parameters[2]
+    password = parameters[3]
+
+    if not isinstance(username, str):
+        return {"success": False, "error": "Username must be a string"}
+    if not isinstance(firstname, str):
+        return {"success": False, "error": "First Name must be a string"}
+    if not isinstance(lastname, str):
+        return {"success": False, "error": "Last Name must be a string"}
+    if not isinstance(password, str):
+        return {"success": False, "error": "Password must be a string"}
 
     c = database_connection.cursor()
 
-    player1_username = parameters[0]
+    if c.execute("SELECT * FROM players WHERE username=?", (username,)).fetchone() is None:
+        c.execute("INSERT INTO players (id, username, firstname, lastname, password) VALUES (?, ?, ?, ?, ?)", (
+            len(c.execute("SELECT * FROM players").fetchall()),
+            username,
+            firstname,
+            lastname,
+            password
+        ))
+        database_connection.commit()
+        c.close()
+
+        verification_key = "".join(random.choice(string.digits) for _ in range(50))
+        while verification_key in verification_keys_in_use:
+            verification_key = "".join(random.choice(string.digits) for _ in range(50))
+        pvk[verification_key] = username
+        conn_to_key[conn] = verification_key
+
+        return {"success": True, "verification_key": verification_key}
+    else:
+        c.close()
+        return {"success": False, "error": "That username is already in use"}
+
+def login(parameters: list, conn) -> dict:
+    if len(parameters) < 2:
+        return {"success": False, "error": "Not enough parameters"}
+
+    username = parameters[0]
+    password = parameters[1]
+
+    if username in pvk:
+        return {"success": False, "error": "That user is already logged in"}
+
+    c = database_connection.cursor()
+    if c.execute("SELECT * FROM players WHERE username=? AND password=?", (username, password)).fetchone() is not None:
+        verification_key = "".join(random.choice(string.digits) for _ in range(50))
+        while verification_key in verification_keys_in_use:
+            verification_key = "".join(random.choice(string.digits) for _ in range(50))
+
+        if conn in conn_to_key:
+            key = conn_to_key[conn]
+            pvk.pop(key)
+            print(f"Removed Verification Key: {key}")
+
+        pvk[verification_key] = username
+        conn_to_key[conn] = verification_key
+
+        c.close()
+        return {"success": True, "verification_key": verification_key}
+    else:
+        c.close()
+        return {"success": False, "error": "That is not a valid user or not the correct password"}
+
+def createNewGame(parameters: list, conn) -> dict:
+    if len(parameters) < 2:
+        return {"success": False, "error": "Not enough parameters"}
+
+    # Player Verification Key Check
+    if parameters[0] not in pvk:
+        return {"success": False, "error": "Invalid verification key passed"}
+
+    player1_username = pvk[parameters[0]]
     player2_username = parameters[1]
+
+    c = database_connection.cursor()
 
     # check if players usernames are the same
     if player1_username == player2_username:
@@ -33,9 +110,6 @@ def CreateNewGame(parameters: list) -> dict:
 
     # check if players exist
     player1_entry = c.execute("SELECT * FROM players WHERE username=?", (player1_username,)).fetchone()
-    if player1_entry is None:
-        c.close()
-        return {"success": False, "error": "Player1 was not found"}
     player2_entry = c.execute("SELECT * FROM players WHERE username=?", (player2_username,)).fetchone()
     if player2_entry is None:
         c.close()
@@ -61,9 +135,9 @@ def CreateNewGame(parameters: list) -> dict:
     database_connection.commit()
     c.close()
 
-    return {"success": True, "state": state, "id": game_id}
+    return {"success": True, "state": state, "team": 1, "id": game_id}
 
-def ViewGame(parameters: list) -> dict:
+def viewGame(parameters: list, conn) -> dict:
     if len(parameters) < 1:
         return {"success": False, "error": "Not enough parameters"}
 
@@ -79,6 +153,34 @@ def ViewGame(parameters: list) -> dict:
     c.close()
 
     return {"success": True, "game": game}
+
+def getTeam(parameters: list, conn) -> dict:
+    if len(parameters) < 2:
+        return {"success": False, "error": "Not enough parameters"}
+
+    if parameters[1] not in pvk:
+        return {"success": False, "error": "Invalid verification key passed"}
+
+    gameId = parameters[0]
+    player_username = pvk[parameters[1]]
+
+    c = database_connection.cursor()
+
+    game = c.execute("SELECT * FROM games WHERE id=?", (gameId,)).fetchone()
+    if game is None:
+        c.close()
+        return {"success": False, "error": "Game does not exist"}
+
+    player = c.execute("SELECT * FROM players WHERE username=?", (player_username,)).fetchone()
+    if game[1] != player[0] and game[2] != player[0]:
+        c.close()
+        return {"success": False, "error": "That user is not in that game"}
+    elif game[1] == player[0]:
+        c.close()
+        return {"success": True, "team": 1}
+    else:
+        c.close()
+        return {"success": True, "team": -1}
 
 def updateGameState(state: dict, column: int) -> dict:
     state["board"][state["column_spots"][column]][column] = state["turn"]
@@ -131,21 +233,25 @@ def updateGameState(state: dict, column: int) -> dict:
 
     return state
 
-def MakeMove(parameters: list) -> dict:
+def makeMove(parameters: list, conn) -> dict:
     if len(parameters) < 3:
         return {"success": False, "error": "Not enough parameters"}
 
-    c = database_connection.cursor()
-
     game_id = parameters[0]
-    playername = parameters[1]
+
+    # Player Verification Key Check
+    if parameters[1] not in pvk:
+        return {"success": False, "error": "Invalid verification key passed"}
+
+    playername = pvk[parameters[1]]
     # we subtract 1 because column is an index
+    if not isinstance(parameters[2], int):
+        return {"success": False, "error": "Column must be a int"}
     column = parameters[2] - 1
 
+    c = database_connection.cursor()
+
     player = c.execute("SELECT * FROM players WHERE username=?", (playername,)).fetchone()
-    if player is None:
-        c.close()
-        return {"success": False, "error": "That player is not found"}
 
     game = c.execute("SELECT * FROM games WHERE id=?", (game_id,)).fetchone()
     if game is None:
@@ -184,56 +290,54 @@ def MakeMove(parameters: list) -> dict:
     database_connection.commit()
     c.close()
 
-    return {"success": True, "state": state}
+    return {"success": True, "state": state, "team": team}
 
 # API Handles
 apis = {
-    "CreateNewGame": CreateNewGame,
-    "ViewGame": ViewGame,
-    "MakeMove": MakeMove,
+    "CreateNewGame": createNewGame,
+    "ViewGame": viewGame,
+    "MakeMove": makeMove,
+    "Signup": signup,
+    "Login": login,
+    "GetTeam": getTeam,
 }
 
 # Socket Server
-def start_server():
-    socket_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    socket_server.bind((HOST, PORT))
-    socket_server.listen()
-
-    while True:
-        conn, addr = socket_server.accept()
-        print(f"Connect by {addr}")
-        _thread.start_new_thread(socket_thread, (conn, addr))
+async def start_server():
+    async with serve(socket_thread, "localhost", 8080):
+        await asyncio.Future()
 
 # Socket User Handler
-def socket_thread(conn: socket.socket, addr):
-    while True:
+async def socket_thread(conn):
+    async for data in conn:
+        # Data should be in structure:
+        # {
+        #    api: str with the name of the api to call
+        #    params: list with the parameters to the api
+        # }
+        print(data)
         try:
-            data = conn.recv(1024).decode()
-            # Data should be in structure:
-            # {
-            #    api: str with the name of the api to call
-            #    params: list with the parameters to the api
-            # }
-            try:
-                json_data = json.loads(data)
+            json_data = json.loads(data)
 
-                if 'api' not in json_data:
-                    conn.send('Request missing api str'.encode())
-                elif 'params' not in json_data:
-                    conn.send('Request missing params list'.encode())
-                else:
-                    if json_data['api'] in apis:
-                        if isinstance(json_data['params'], list):
-                            conn.send(json.dumps(apis[json_data['api']](json_data['params'])).encode())
-                        else:
-                            conn.send('Params must be of type list'.encode())
+            if "api" not in json_data:
+                await conn.send(json.dumps({"success": False, "error": "Request missing api str"}))
+            elif "params" not in json_data:
+                await conn.send(json.dumps({"success": False, "error": "Request missing params list"}))
+            else:
+                if json_data["api"] in apis:
+                    if isinstance(json_data["params"], list):
+                        await conn.send(json.dumps(apis[json_data["api"]](json_data["params"], conn)))
                     else:
-                        conn.send('API requested is not valid'.encode())
-            except json.JSONDecodeError:
-                conn.send('Data must be of type: JSON'.encode())
-        except socket.error:
-            print(f"Disconnect by {addr}")
-            break
+                        await conn.send(json.dumps({"success": False, "error": "Params must be of type list"}))
+                else:
+                    await conn.send(json.dumps({"success": False, "error": "API requested is not valid"}))
+        except json.JSONDecodeError:
+            await conn.send(json.dumps({"success": False, "error": "Data must be of type: JSON"}))
+
+    if conn in conn_to_key:
+        # disconnect
+        key = conn_to_key.pop(conn)
+        pvk.pop(key)
 
 if __name__ == "__main__":
-    start_server()
+    asyncio.run(start_server())
