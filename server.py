@@ -309,32 +309,35 @@ async def start_server():
 
 # Socket User Handler
 async def socket_thread(conn):
-    async for data in conn:
-        # Data should be in structure:
-        # {
-        #    api: str with the name of the api to call
-        #    params: list with the parameters to the api
-        # }
-        try:
-            json_data = json.loads(data)
+    print("Connect")
+    try:
+        async for data in conn:
+            # Data should be in structure:
+            # {
+            #    api: str with the name of the api to call
+            #    params: list with the parameters to the api
+            # }
+            try:
+                json_data = json.loads(data)
 
-            if "api" not in json_data:
-                await conn.send(json.dumps({"success": False, "error": "Request missing api str"}))
-            elif "params" not in json_data:
-                await conn.send(json.dumps({"success": False, "error": "Request missing params list"}))
-            else:
-                if json_data["api"] in apis:
-                    if isinstance(json_data["params"], list):
-                        await conn.send(json.dumps(apis[json_data["api"]](json_data["params"], conn)))
-                    else:
-                        await conn.send(json.dumps({"success": False, "error": "Params must be of type list"}))
+                if "api" not in json_data:
+                    await conn.send(json.dumps({"success": False, "error": "Request missing api str"}))
+                elif "params" not in json_data:
+                    await conn.send(json.dumps({"success": False, "error": "Request missing params list"}))
                 else:
-                    await conn.send(json.dumps({"success": False, "error": "API requested is not valid"}))
-        except json.JSONDecodeError:
-            await conn.send(json.dumps({"success": False, "error": "Data must be of type: JSON"}))
-        except:
-            print("error")
+                    if json_data["api"] in apis:
+                        if isinstance(json_data["params"], list):
+                            await conn.send(json.dumps(apis[json_data["api"]](json_data["params"], conn)))
+                        else:
+                            await conn.send(json.dumps({"success": False, "error": "Params must be of type list"}))
+                    else:
+                        await conn.send(json.dumps({"success": False, "error": "API requested is not valid"}))
+            except json.JSONDecodeError:
+                await conn.send(json.dumps({"success": False, "error": "Data must be of type: JSON"}))
+    except:
+        pass
 
+    print("Disconnect")
     if conn in conn_to_key:
         # disconnect
         key = conn_to_key.pop(conn)
