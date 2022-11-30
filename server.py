@@ -332,6 +332,8 @@ async def socket_thread(conn):
                     await conn.send(json.dumps({"success": False, "error": "API requested is not valid"}))
         except json.JSONDecodeError:
             await conn.send(json.dumps({"success": False, "error": "Data must be of type: JSON"}))
+        except:
+            print("error")
 
     if conn in conn_to_key:
         # disconnect
