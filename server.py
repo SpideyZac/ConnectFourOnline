@@ -315,7 +315,6 @@ async def socket_thread(conn):
         #    api: str with the name of the api to call
         #    params: list with the parameters to the api
         # }
-        print(data)
         try:
             json_data = json.loads(data)
 
