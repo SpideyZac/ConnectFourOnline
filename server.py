@@ -1,6 +1,7 @@
 # Imports
 import asyncio
 from websockets import serve
+from websockets.exceptions import ConnectionClosedError
 import json
 import sqlite3
 import random
@@ -334,7 +335,7 @@ async def socket_thread(conn):
                         await conn.send(json.dumps({"success": False, "error": "API requested is not valid"}))
             except json.JSONDecodeError:
                 await conn.send(json.dumps({"success": False, "error": "Data must be of type: JSON"}))
-    except:
+    except ConnectionClosedError:
         pass
 
     print("Disconnect")
