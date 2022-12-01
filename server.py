@@ -68,7 +68,7 @@ def login(parameters: list, conn) -> dict:
     username = parameters[0]
     password = parameters[1]
 
-    if username in pvk:
+    if username in pvk.values():
         return {"success": False, "error": "That user is already logged in"}
 
     c = database_connection.cursor()
