@@ -19,6 +19,27 @@ verification_keys_in_use = []
 conn_to_key = {}
 
 # API Functions
+def signout(parameters: list, conn) -> dict:
+    if conn not in conn_to_key:
+        return {"success": False, "error": "You are not logged in"}
+
+    key = conn_to_key[conn]
+
+    pvk.pop(key)
+    verification_keys_in_use.remove(key)
+    conn_to_key.pop(conn)
+
+    return {"success": True}
+
+def isKeyLinked(parameters: list, conn) -> dict:
+    if len(parameters) < 2:
+        return {"success": False, "error": "Not enough parameters"}
+
+    if parameters[0] not in pvk:
+        return {"success": True, "result": False}
+
+    return {"success": True, "result": pvk[parameters[0]] == parameters[1]}
+
 def signup(parameters: list, conn) -> dict:
     if len(parameters) < 4:
         return {"success": False, "error": "Not enough parameters"}
@@ -37,6 +58,9 @@ def signup(parameters: list, conn) -> dict:
     if not isinstance(password, str):
         return {"success": False, "error": "Password must be a string"}
 
+    if len(username) == 0 or len(firstname) == 0 or len(lastname) == 0 or len(password) == 0:
+        return {"success": False, "error": "All values have to have a length greater than 0"}
+
     c = database_connection.cursor()
 
     if c.execute("SELECT * FROM players WHERE username=?", (username,)).fetchone() is None:
@@ -50,13 +74,7 @@ def signup(parameters: list, conn) -> dict:
         database_connection.commit()
         c.close()
 
-        verification_key = "".join(random.choice(string.digits) for _ in range(50))
-        while verification_key in verification_keys_in_use:
-            verification_key = "".join(random.choice(string.digits) for _ in range(50))
-        pvk[verification_key] = username
-        conn_to_key[conn] = verification_key
-
-        return {"success": True, "verification_key": verification_key}
+        return {"success": True}
     else:
         c.close()
         return {"success": False, "error": "That username is already in use"}
@@ -73,9 +91,10 @@ def login(parameters: list, conn) -> dict:
 
     c = database_connection.cursor()
     if c.execute("SELECT * FROM players WHERE username=? AND password=?", (username, password)).fetchone() is not None:
-        verification_key = "".join(random.choice(string.digits) for _ in range(50))
+        verification_key = "".join(random.choice(string.digits) for _ in range(random.randint(1, 50)))
         while verification_key in verification_keys_in_use:
-            verification_key = "".join(random.choice(string.digits) for _ in range(50))
+            verification_key = "".join(random.choice(string.digits) for _ in range(random.randint(1, 50)))
+        verification_keys_in_use.append(verification_key)
 
         if conn in conn_to_key:
             key = conn_to_key[conn]
@@ -92,15 +111,17 @@ def login(parameters: list, conn) -> dict:
         return {"success": False, "error": "That is not a valid user or not the correct password"}
 
 def createNewGame(parameters: list, conn) -> dict:
-    if len(parameters) < 2:
+    if len(parameters) < 3:
         return {"success": False, "error": "Not enough parameters"}
 
     # Player Verification Key Check
     if parameters[0] not in pvk:
         return {"success": False, "error": "Invalid verification key passed"}
-
     player1_username = pvk[parameters[0]]
-    player2_username = parameters[1]
+    if parameters[1] != player1_username:
+        return {"success": False, "error": "Username does not math assocciated verification key"}
+
+    player2_username = parameters[2]
 
     c = database_connection.cursor()
 
@@ -117,7 +138,7 @@ def createNewGame(parameters: list, conn) -> dict:
         return {"success": False, "error": "Player2 was not found"}
 
     # generate game id
-    game_id = len(c.execute("SELECT * FROM games").fetchall())
+    game_id = str(len(c.execute("SELECT * FROM games").fetchall()))
 
     # create new game and insert into database
     state = {}
@@ -156,14 +177,17 @@ def viewGame(parameters: list, conn) -> dict:
     return {"success": True, "game": game}
 
 def getTeam(parameters: list, conn) -> dict:
-    if len(parameters) < 2:
+    if len(parameters) < 3:
         return {"success": False, "error": "Not enough parameters"}
 
-    if parameters[1] not in pvk:
+    # Player Verification Key Check
+    if parameters[0] not in pvk:
         return {"success": False, "error": "Invalid verification key passed"}
+    player_username = pvk[parameters[0]]
+    if parameters[1] != player_username:
+        return {"success": False, "error": "Username does not math assocciated verification key"}
 
-    gameId = parameters[0]
-    player_username = pvk[parameters[1]]
+    gameId = parameters[2]
 
     c = database_connection.cursor()
 
@@ -235,20 +259,22 @@ def updateGameState(state: dict, column: int) -> dict:
     return state
 
 def makeMove(parameters: list, conn) -> dict:
-    if len(parameters) < 3:
+    if len(parameters) < 4:
         return {"success": False, "error": "Not enough parameters"}
 
-    game_id = parameters[0]
+    game_id = parameters[2]
 
     # Player Verification Key Check
-    if parameters[1] not in pvk:
+    if parameters[0] not in pvk:
         return {"success": False, "error": "Invalid verification key passed"}
+    playername = pvk[parameters[0]]
+    if parameters[1] != playername:
+        return {"success": False, "error": "Username does not math assocciated verification key"}
 
-    playername = pvk[parameters[1]]
     # we subtract 1 because column is an index
-    if not isinstance(parameters[2], int):
+    if not isinstance(parameters[3], int):
         return {"success": False, "error": "Column must be a int"}
-    column = parameters[2] - 1
+    column = parameters[3] - 1
 
     c = database_connection.cursor()
 
@@ -301,6 +327,8 @@ apis = {
     "Signup": signup,
     "Login": login,
     "GetTeam": getTeam,
+    "Signout": signout,
+    "IsKeyLinked": isKeyLinked,
 }
 
 # Socket Server

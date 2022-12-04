@@ -1,0 +1,4 @@
+npx create-react-app connect-four-client
+npm start
+npm build
+serve -s build

@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  font-family: "Quicksand";
+  color: #333;
+}
+.navbar {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  max-width: 600px;
+  margin: 0 auto;
+  border-bottom: 1px solid #f2f2f2;
+}
+.navbar h1 {
+  color: blue;
+}
+.navbar .links {
+  margin-left: auto;
+}
+.navbar a {
+  margin-left: 16px;
+  text-decoration: none;
+  padding: 6px;
+}
+.navbar a:hover {
+  color: blue;
+}
+.content {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.signup {
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: center;
+}
+.login {
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: center;
+}
+.new-match-form {
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: center;
+}
+.join-match {
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+label {
+  text-align: left;
+  display: block;
+}
+h2 {
+  font-size: 20px;
+  color: blue;
+  margin-bottom: 30px;
+}
+input {
+  width: 100%;
+  padding: 6px 10px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  box-sizing: border-box;
+  display: block;
+}
+button {
+  background: blue;
+  color: #fff;
+  border: 0;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.game {
+  position: relative;
+}
+.game img {
+  text-align: center;
+  width: 100%;
+  display: block;
+  margin: auto;
+}
+.game button {
+  position: relative;
+  background-color: blue;
+  border: none;
+  padding: 20px;
+  display: inline-block;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 50%;
+  opacity: 50%;
+  margin-right: 43.7px;
+  left: 21px;
+}
+.game button:hover {
+  opacity: 100%;
+}
+.game .dis {
+  opacity: 0%;
+  pointer-events: none;
+}
+.game .dis:hover {
+  opacity: 0%;
+}
