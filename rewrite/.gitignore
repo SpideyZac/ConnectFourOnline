@@ -1,0 +1,12 @@
+# Pocketbase
+pocketbase.exe
+pb_data/
+
+# Yarn/NPM
+node_modules/
+
+# Build
+build/
+
+# Secrets
+.env
